@@ -28,19 +28,46 @@ class BasetaggableCompleteActions extends sfActions
   public function executeComplete(sfWebRequest $request)
   {
     $this->setLayout(false);
-    $current = '';
-    if ($request->hasParameter('q'))
-    {
-    	$current = $request->getParameter('q');
+
+    // Simplified version for the newer tag editor which does not
+    // send a string with all the current tags
+
+    $oldJquery = $request->hasParameter('q');
+    $newJquery = $request->hasParameter('term');
+    if ($oldJquery || $newJquery) {
+      if ($oldJquery) {
+        $current = $request->getParameter('q');
+      } else {
+        $current = $request->getParameter('term');
+      }
+      $this->tagSuggestions = array();
+      $tag = Doctrine_Query::create()->
+        from('Tag t')->
+        where('t.name = ?', $current)->
+        fetchOne();
+      if ($tag) {
+        $this->tagSuggestions[] = array('suggested' => $tag['name']);
+      }
+      $q = $this->getQuery($current);
+      $suggestedTags = $q->execute();
+      foreach ($suggestedTags as $suggestion) {
+        if ($suggestion['name'] === $tag['name']) {
+          continue;
+        }
+        $this->tagSuggestions[] = array('suggested' => $suggestion['name']);
+      }
+      if ($oldJquery)
+      {
+        $this->setTemplate('jQueryAutocompleteOld');
+      }
+      elseif ($newJquery)
+      {
+        $this->setTemplate('jQueryAutocomplete');
+      }
+      return;
     }
-    elseif ($request->hasParameter('term'))
-    {
-      $current = $request->getParameter('term');
-    }
-    else
-    {
-    	$current = $request->getParameter('current');
-    }
+
+  	$current = $request->getParameter('current');
     $tags = array();
     $tagsInfo = array();
     $tagsAll = array();
@@ -93,15 +120,6 @@ class BasetaggableCompleteActions extends sfActions
       $all .= $tagInfo['name'];
       $all .= $tagInfo['right'];
       $n++;
-    }
-
-    if ($this->hasRequestParameter('q'))
-    {
-    	$this->setTemplate('jQueryAutocompleteOld');
-    }
-    elseif ($this->hasRequestParameter('term'))
-    {
-    	$this->setTemplate('jQueryAutocomplete');
     }
   }
 
