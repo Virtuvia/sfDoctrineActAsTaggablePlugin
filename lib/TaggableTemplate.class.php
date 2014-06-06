@@ -69,7 +69,7 @@ class TaggableListener extends Doctrine_Record_Listener
             $tagging = new Tagging();
             $tagging->tag_id = $tag->id;
             $tagging->taggable_id = $object->id;
-            $tagging->taggable_model = get_class($object);
+            $tagging->taggable_model = $this->getClassnameToReturn($object);
             $tagging->save();
 
             $tag->free();
@@ -114,6 +114,36 @@ class TaggableListener extends Doctrine_Record_Listener
           ->addWhere('taggable_id = ?')
           ->addWhere('taggable_model = ?')
           ->execute(array($object->id, get_class($object)));
+    }
+
+    /**
+     * Get the class name of the current record while taking into account inheritance
+     *
+     * @see Doctrine_Table::getClassNameToReturn()
+     * @param Doctrine_Record $record
+     * @return string
+     */
+    public function getClassnameToReturn($record)
+    {
+        $table = $record->getTable();
+        if ( ! $table->getOption('subclasses')) {
+            return $table->getOption('name');
+        }
+        foreach ($table->getOption('subclasses') as $subclass) {
+            $subclassTable = Doctrine_Core::getTable($subclass);
+            $inheritanceMap = $subclassTable->getOption('inheritanceMap');
+            $nomatch = false;
+            foreach ($inheritanceMap as $key => $value) {
+                if ( ! $record->contains($key) || $record->get($key) != $value) {
+                    $nomatch = true;
+                    break;
+                }
+            }
+            if ( ! $nomatch) {
+                return $subclassTable->getComponentName();
+            }
+        }
+        return $table->getOption('name');
     }
 }
 
