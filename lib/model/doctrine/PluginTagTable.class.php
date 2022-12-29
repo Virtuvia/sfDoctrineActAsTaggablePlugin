@@ -164,14 +164,14 @@ class PluginTagTable extends Doctrine_Table
           ->orderBy('t_count DESC, t.name ASC')
         ;
 
-        $rs = $q->execute(array(), Doctrine_Core::HYDRATE_ARRAY);
+        $rs = $q->execute(array(), Doctrine_Core::HYDRATE_SCALAR);
 
         $tags = array();
 
         foreach($rs as $tag)
         {
-            $name = $tag['Tag']['name'];
-            $tags[$name] = $tag['t_count'];
+            $name = $tag['t_name'];
+            $tags[$name] = $tag['tg_t_count'];
         }
 
         if (!isset($options['sort_by_popularity']) || (true !== $options['sort_by_popularity']))
@@ -501,7 +501,7 @@ class PluginTagTable extends Doctrine_Table
             $q->addSelect('tg.taggable_model')->addGroupBy('tg.taggable_model');
         }
 
-        $results = $q->execute(array(), Doctrine_Core::HYDRATE_ARRAY);
+        $results = $q->execute(array(), Doctrine_Core::HYDRATE_SCALAR);
 
         $taggings = array();
 
@@ -513,7 +513,7 @@ class PluginTagTable extends Doctrine_Table
             }
             else
             {
-                $model = $rs['taggable_model'];
+                $model = $rs['tg_taggable_model'];
             }
 
             if (!isset($taggings[$model]))
@@ -521,7 +521,7 @@ class PluginTagTable extends Doctrine_Table
                 $taggings[$model] = array();
             }
 
-            $taggings[$model][] = $rs['taggable_id'];
+            $taggings[$model][] = $rs['tg_taggable_id'];
         }
 
         return $taggings;
