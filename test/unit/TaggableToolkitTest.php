@@ -1,9 +1,6 @@
 <?php
-// initializes testing framework
-$sf_root_dir = realpath(dirname(__FILE__).'/../../../../');
 
-// initialize database manager
-require_once($sf_root_dir.'/test/bootstrap/unit.php');
+require_once dirname(__DIR__) . '/bootstrap/unit.php';
 
 // start tests
 $t = new lime_test(31);
@@ -109,39 +106,42 @@ class Doctrine
   }
 }
 
-class ValidModel
+class ValidModelTable
 {
-  public static function getTable()
-  {
-    return new self();
-  }
-
-  public function hasTemplate($template)
-  {
-    return true;
-  }
+    /**
+     * @param string $template
+     * @return bool
+     */
+    public function hasTemplate($template): bool
+    {
+        return $template === 'Taggable';
+    }
 }
 
-class InValidModel
+class ValidModel extends \Doctrine_Record
 {
-  public static function getTable()
-  {
-    return new self();
-  }
+    public function setUp(): void
+    {
+        parent::setUp();
+        $this->actAs(new Taggable());
+    }
+}
 
-  public function hasTemplate($template)
-  {
-    return false;
-  }
+class InValidModelTable extends \Doctrine_Table
+{
+}
+
+class InValidModel extends \Doctrine_Record
+{
 }
 
 $t->diag('::isTaggable');
 
 $t->ok(TaggableToolkit::isTaggable('ValidModel'), 'valid model name');
-$t->ok(TaggableToolkit::isTaggable(new ValidModel('ValidModel')), 'valid model object');
+$t->ok(TaggableToolkit::isTaggable(new ValidModel()), 'valid model object');
 
 $t->ok(!TaggableToolkit::isTaggable('InValidModel'), 'invalid model name');
-$t->ok(!TaggableToolkit::isTaggable(new InValidModel('InValidModel')), 'invalid model object');
+$t->ok(!TaggableToolkit::isTaggable(new InValidModel()), 'invalid model object');
 
 try
 {
