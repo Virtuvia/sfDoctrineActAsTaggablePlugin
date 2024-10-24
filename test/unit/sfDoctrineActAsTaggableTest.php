@@ -42,7 +42,7 @@ Doctrine_Query::create()->delete()->from(TEST_CLASS_2)->execute();
 // $browser->initialize();
 
 // start tests
-$t = new lime_test(50, new lime_output_color());
+$t = new lime_test(66, new lime_output_color());
 
 // these tests check for the tags attachement consistency
 $t->diag('tagging consistency');
@@ -52,7 +52,7 @@ $t->ok($object->getTags() == array(), 'a new object has no tag.');
 
 $object->addTag('toto');
 $object_tags = $object->getTags();
-$t->ok((count($object_tags) == 1) && ($object_tags[0] == 'toto'), 'a non-saved object can get tagged.');
+$t->ok((count($object_tags) == 1) && ($object_tags['toto'] == 'toto'), 'a non-saved object can get tagged.');
 
 $object->addTag('toto');
 $object_tags = $object->getTags();
@@ -168,7 +168,7 @@ $t->diag('various methods for applying tags');
 $object = _create_object();
 $object->addTag('toto');
 $object_tags = $object->getTags();
-$t->ok((count($object_tags) == 1) && ($object_tags[0] == 'toto'), 'one tag can be added alone.');
+$t->ok((count($object_tags) == 1) && ($object_tags['toto'] == 'toto'), 'one tag can be added alone.');
 
 $object->addTag('titi,tutu');
 $object_tags = $object->getTags();
@@ -364,6 +364,126 @@ $t->ok($tag->getIsTriple(), 'a triple tag created from a string is identified as
 
 $tag = Doctrine_Core::getTable('Tag')->findOrCreateByTagname('tutu');
 $t->ok(!$tag->getIsTriple(), 'a non tripled tag created from a string is not identified as a triple.');
+
+
+// these tests check the retrieval of the tags of one object, based on
+// triple-tags constraints
+$t->diag('retrieving triple tags, and extracting only parts of it');
+
+$object = _create_object();
+$object->addTag('geo:lat=50.7');
+$object->addTag('geo:long=6.1');
+$object->addTag('de:city=Aachen');
+$object->addTag('fr:city=Aix la Chapelle');
+$object->addTag('en:city=Aix Chapel');
+$object->save();
+
+// get all the tags
+$tags = $object->getTags();
+$t->ok(count($tags) == 5, 'The addTags() method permits to create triple tags, that can be retrieved using getTags().');
+
+$id = $object->getPrimaryKey();
+$object = Doctrine_Core::getTable(TEST_CLASS)->findOneById($id);
+$tags = $object->getTags();
+$t->ok(count($tags) == 5, 'The addTags() method permits to create triple tags, that can be retrieved using getTags(), even when saved.');
+
+// get all the informations in the "geo" namespace
+$tags = $object->getTags(array('is_triple' => true,
+                               'namespace' => 'geo',
+                               'return'    => 'value'));
+$t->ok(count($tags) == 2, 'The getTags() method permits to select triple tags in one specific namespace.');
+
+// get all the values of the triple tags for which the key is "city", whatever
+// the namespace
+$tags = $object->getTags(array('is_triple' => true,
+                               'key'       => 'city',
+                               'return'    => 'value'));
+$t->ok(count($tags) == 3, 'The getTags() method permits to select triple tags for one specific key.');
+
+$object2 = _create_object();
+$object2->addTag('geo:lat=48.8');
+$object2->addTag('geo:long=2.4');
+$object2->addTag('de:city=Paris');
+$object2->addTag('fr:city=Paris');
+$object2->addTag('en:city=Paris');
+$object2->save();
+
+// get all the values of the triple tags for which the key is "city", whatever
+// the namespace
+$tags = $object2->getTags(array('is_triple' => true,
+                                'key'       => 'city',
+                                'return'    => 'value'));
+$t->ok(count($tags) == 1, 'When selecting only the values of triple tags of one object, there is no duplicate.');
+
+$ns = $object2->getTags(array('is_triple' => true,
+                              'return'    => 'namespace'));
+$t->ok(count($ns) == 4, 'The method getTags() permit to select only the names of the namespaces of the tags attached to one object.');
+
+
+// these tests check for TagPeer triple tags specific methods (tag clouds generation)
+sfConfig::set('app_sfDoctrineActAsTaggablePlugin_triple_distinct', false);
+$t->diag('querying triple tagging');
+
+$result = Doctrine_Core::getTable('Tag')->getAllTagName(null, array('triple' => true));
+$t->ok(in_array('ns:key=value', $result), 'triple tags are returned when searching for triples only.');
+$t->ok(!in_array('tutu', $result), 'ordinary tags are not returned when searching for triples only.');
+
+$result = Doctrine_Core::getTable('Tag')->getAllTagName(null, array('triple' => false));
+$t->ok(in_array('tutu', $result), 'normal tags are returned when searching for ordinary ones only.');
+$t->ok(!in_array('ns:key=value', $result), 'triple tags are not returned when searching for normal ones.');
+
+
+// these tests the search of specific triple tags parts
+$t->diag('searching for specific parts of triple');
+
+$result = Doctrine_Core::getTable('Tag')->getAllTagName(null, array('triple' => true, 'namespace' => 'ns'));
+$t->ok($result === array('ns:key=value', 'ns:key=tutu', 'ns:key=titi', 'ns:key=toto'), 'it is possible to search for triple tags by namespace.');
+
+$result = Doctrine_Core::getTable('Tag')->getAllTagName(null, array('triple' => true, 'key' => 'key'));
+$t->ok($result === array('ns:key=value', 'ns:key=tutu', 'ns:key=titi', 'ns:key=toto'), 'it is possible to search for triple tags by key.');
+
+$result = Doctrine_Core::getTable('Tag')->getAllTagName(null, array('triple' => true, 'value' => 'tutu'));
+$t->ok($result === array('ns:key=tutu'), 'it is possible to search for triple tags by value.');
+
+$objects_triple = Doctrine_Core::getTable('Tag')->getObjectTaggedWith(array(), array('namespace' => 'ns', 'model' => TEST_CLASS));
+$t->ok(count($objects_triple) == 1, 'it is possible to retrieve objects tagged with certain triple tags.');
+
+
+// clean the database
+Doctrine_Query::create()->delete()->from('Tag')->execute();
+Doctrine_Query::create()->delete()->from('Tagging')->execute();
+Doctrine_Query::create()->delete()->from(TEST_CLASS)->execute();
+Doctrine_Query::create()->delete()->from(TEST_CLASS_2)->execute();
+
+
+// these tests check for the behavior of the triple tags when the plugin is set
+// up so that namespace:key is a unique key
+sfConfig::set('app_sfDoctrineActAsTaggablePlugin_triple_distinct', true);
+$t->diag('querying triple tagging');
+
+$object = _create_object();
+$object->addTag('tutu');
+$object->save();
+
+$object = _create_object();
+$object->addTag('ns:key=value');
+$object->addTag('ns:key=tutu');
+$object->addTag('ns:key=titi');
+$object->addTag('ns:second_key=toto');
+$object->save();
+
+$tags_triple = Doctrine_Core::getTable('Tag')->getAllTagName(null, array('triple' => true, 'namespace' => 'ns'));
+$t->ok(count($tags_triple) == 2, 'it is possible to set up the plugin so that namespace:key is a unique key.');
+
+$object2 = _create_object();
+$object2->addTag('ns:key=value');
+$object2->addTag('ns:second_key=toto');
+$object2->save();
+
+$tags_triple = Doctrine_Core::getTable('Tag')->getAllTagName(null, array('triple' => true, 'namespace' => 'ns'));
+$t->ok(count($tags_triple) == 3, 'it is possible to apply triple tags to various objects when the plugin is set up so that namespace:key is a unique key.');
+
+
 
 // test object creation
 function _create_object()
