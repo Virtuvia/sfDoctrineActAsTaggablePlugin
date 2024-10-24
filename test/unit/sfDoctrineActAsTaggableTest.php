@@ -1,10 +1,24 @@
 <?php
-// test variables definition
-define('TEST_CLASS', getenv('SYMFONY_TAGGABLE_TEST_CLASS') ?: 'Logger');
-define('TEST_CLASS_2', getenv('SYMFONY_TAGGABLE_TEST_CLASS_2') ?: 'Alert');
-define('TEST_NON_TAGGABLE_CLASS', getenv('SYMFONY_TAGGABLE_TEST_NON_TAG_CLASS') ?: 'Event');
 
-require_once dirname(__DIR__) . '/bootstrap/unit.php';
+declare(strict_types=1);
+
+require_once __DIR__ . '/../bootstrap/unit.php';
+require_once __DIR__ . '/../lib/model/Tagged.class.php';
+require_once __DIR__ . '/../lib/model/Tagged2.class.php';
+require_once __DIR__ . '/../lib/model/NonTagged.class.php';
+
+// test variables definition
+define('TEST_CLASS', Tagged::class);
+define('TEST_CLASS_2', Tagged2::class);
+define('TEST_NON_TAGGABLE_CLASS', NonTagged::class);
+
+Doctrine_Core::createTablesFromArray([
+    Tagging::class,
+    Tag::class,
+    Tagged::class,
+    Tagged2::class,
+    NonTagged::class,
+]);
 
 $all = \sfConfig::getAll();
 if (!defined('TEST_CLASS') || !class_exists(TEST_CLASS)
