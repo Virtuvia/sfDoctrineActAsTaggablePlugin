@@ -20,7 +20,6 @@ Doctrine_Core::createTablesFromArray([
     NonTagged::class,
 ]);
 
-$all = \sfConfig::getAll();
 if (!defined('TEST_CLASS') || !class_exists(TEST_CLASS)
     || !defined('TEST_CLASS_2') || !class_exists(TEST_CLASS_2))
 {
@@ -36,10 +35,6 @@ Doctrine_Query::create()->delete()->from('Tag')->execute();
 Doctrine_Query::create()->delete()->from('Tagging')->execute();
 Doctrine_Query::create()->delete()->from(TEST_CLASS)->execute();
 Doctrine_Query::create()->delete()->from(TEST_CLASS_2)->execute();
-
-// create a new test browser
-// $browser = new sfTestBrowser();
-// $browser->initialize();
 
 // start tests
 $t = new lime_test(66, new lime_output_color());
